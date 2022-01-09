@@ -6,8 +6,9 @@ import subprocess as sp
 def dain_slowmotion(
     input_filepath: Path,
     output_dir: Path,
-    time_step: float,
+    slow_factor: int,
     seamless: bool = False,
+    output_fps: int = 0,
     dain_exec_path: Path = Path("/usr/local/dain/colab_interpolate.py")
 ):
     # Make the output directory
@@ -27,15 +28,14 @@ def dain_slowmotion(
 
     # Use ffmpeg to extract input frames
     print("Extracting input frames...")
-    s = 128
     os.system(f"ffmpeg -i '{input_filepath}' '{input_frames_dir}/%05d.png'")
     print("Input frames have been extracted.")
 
-    # Assign properties for input frames
+    # Assign input properties
     input_frames = [name for name in os.listdir(input_frames_dir) if os.path.isfile(input_frames_dir / name)]
     num_input_frames = len(input_frames)
     first_input_frame = input_frames_dir / f"{1:05d}.png"
-    
+
     # Detect and remove alpha channel if necessary
     img_channels = sp.getoutput('identify -format %[channels] 00001.png')
     
@@ -52,6 +52,7 @@ def dain_slowmotion(
         print("Using first frame as last frame.")
     
     # Interpolate with DAIN
+    time_step = 1 / float(slow_factor)
     os.system(
         f" \
             python {dain_exec_path} \
@@ -64,9 +65,28 @@ def dain_slowmotion(
         "
     )
 
+    # Calculate output fps
+    input_fps_str = sp.getoutput(f"ffprobe -v 0 -of csv=p=0 -select_streams v:0 -show_entries stream=r_frame_rate {input_filepath}")
+    input_fps_n, input_fps_d = [int(n) for n in input_fps_str.split("/")]
+    
+    output_fps_n = input_fps_n / time_step
+    output_fps_d = input_fps_d
+
+    if output_fps < 1:
+        output_fps_str = f"{output_fps_n}/{input_fps_d}"
+        output_fps_int = int(input_fps_n)
+    else:
+        output_fps_str = str(output_fps)
+        output_fps_int = output_fps
+
+    # Generate output video
+    output_video_path = output_dir / f"{input_filepath.stem}-{slow_factor}x-{output_fps_int}fps.mp4"
+    os.system(f"ffmpeg -y -r {output_fps_str} -f image2 -pattern_type glob -i '{output_frames_dir}/*.png' -pix_fmt yuv420p '{output_video_path}'")
+
 dain_slowmotion(
     input_filepath=Path("/usr/local/dain/content/test1/books.mp4"),
     output_dir=Path("/usr/local/dain/content/test1-out"),
-    time_step=0.125,
+    slow_factor=16,
+    output_fps=30,
     seamless=True
 )
