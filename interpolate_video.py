@@ -89,6 +89,11 @@ def dain_slowmotion(
         shutil.copy(first_input_frame, loop_input_frame)
         print("Using first frame as last frame.")
     
+    # Helpful logging
+    print("********************************")
+    print(f"* Processing {input_file_path.name}")
+    print("********************************")
+
     # Interpolate with DAIN
     time_step = 1 / float(slow_factor)
     os.system(
