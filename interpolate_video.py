@@ -120,4 +120,8 @@ def dain_slowmotion(
     # Generate output video
     os.system(f"ffmpeg -y -r {output_fps_str} -f image2 -pattern_type glob -i '{output_frames_dir}/*.png' -pix_fmt yuv420p '{output_video_path}'")
 
+    # Clean up
+    shutil.rmtree(input_frames_dir, ignore_errors=True)
+    shutil.rmtree(output_frames_dir, ignore_errors=True)
+
     print(f"Completed processing video: {output_video_path}")
