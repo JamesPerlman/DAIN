@@ -27,6 +27,7 @@ def dain_slowmotion(
 
     # Use ffmpeg to extract input frames
     print("Extracting input frames...")
+    s = 128
     os.system(f"ffmpeg -i '{input_filepath}' '{input_frames_dir}/%05d.png'")
     print("Input frames have been extracted.")
 
@@ -45,13 +46,27 @@ def dain_slowmotion(
 
     # Use first frame as last if this is a looping video
     if seamless:
-        loop_input_frame = input_frames_dir / f"{(num_input_frames + 1):05d}.png"
+        num_input_frames += 1
+        loop_input_frame = input_frames_dir / f"{num_input_frames:05d}.png"
         shutil.copy(first_input_frame, loop_input_frame)
         print("Using first frame as last frame.")
+    
+    # Interpolate with DAIN
+    os.system(
+        f" \
+            python {dain_exec_path} \
+            --netName DAIN_slowmotion \
+            --time_step {time_step} \
+            --start_frame 1 \
+            --end_frame {num_input_frames} \
+            --frame_input_dir '{input_frames_dir}' \
+            --frame_output_dir '{output_frames_dir}' \
+        "
+    )
 
 dain_slowmotion(
     input_filepath=Path("/usr/local/dain/content/test1/books.mp4"),
     output_dir=Path("/usr/local/dain/content/test1-out"),
-    time_step=0.25,
+    time_step=0.125,
     seamless=True
 )
