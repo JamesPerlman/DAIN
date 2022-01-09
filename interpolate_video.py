@@ -3,32 +3,70 @@ from pathlib import Path
 import shutil
 import subprocess as sp
 
+def get_output_video_fps(
+    input_file_path: Path,
+    output_dir_path: Path,
+    slow_factor: int,
+    output_fps: int = 0,
+) -> str:
+    if output_fps > 0:
+        return str(output_fps)
+    
+    input_fps_str = sp.getoutput(f"ffprobe -v 0 -of csv=p=0 -select_streams v:0 -show_entries stream=r_frame_rate {input_file_path}")
+    input_fps_n, input_fps_d = [int(n) for n in input_fps_str.split("/")]
+    
+    output_fps_n = input_fps_n * slow_factor
+    output_fps_d = input_fps_d
+
+    return f"{output_fps_n}/{input_fps_d}"
+
+
+def get_output_video_path(
+    input_file_path: Path,
+    output_dir_path: Path,
+    slow_factor: int,
+    output_fps_str: str
+) -> str:
+    output_fps_n, output_fps_d = [int(n) for n in output_fps_str.split("/")]
+    output_fps_int = int(output_fps_n / output_fps_d)
+    return output_dir_path / f"{input_file_path.stem}-{slow_factor}x-{output_fps_int}fps.mp4"
+
+
 def dain_slowmotion(
-    input_filepath: Path,
-    output_dir: Path,
+    input_file_path: Path,
+    output_dir_path: Path,
     slow_factor: int,
     seamless: bool = False,
     output_fps: int = 0,
     dain_exec_path: Path = Path("/usr/local/dain/colab_interpolate.py")
 ):
+    # Get output details
+    output_fps_str = get_output_video_fps(input_file_path, output_dir_path, slow_factor, output_fps)
+    output_video_path = get_output_video_path(input_file_path, output_dir_path, slow_factor, output_fps_str)
+
+    # If output video already exists, we can skip this
+    if os.path.isfile(output_video_path):
+        print(f"Video file already exists. Skipping: {output_video_path}")
+        return
+    
     # Make the output directory
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir_path.mkdir(parents=True, exist_ok=True)
 
     # Make input frames directory
-    input_frames_dir = output_dir / "input_frames"
+    input_frames_dir = output_dir_path / "input_frames"
     shutil.rmtree(input_frames_dir, ignore_errors=True)
     input_frames_dir.mkdir()
     print(f"Created directory for input frames: {input_frames_dir}")
 
     # Make output frames directory
-    output_frames_dir = output_dir / "output_frames"
+    output_frames_dir = output_dir_path / "output_frames"
     shutil.rmtree(output_frames_dir, ignore_errors=True)
     output_frames_dir.mkdir()
     print(f"Created directory for output frames: {output_frames_dir}")
 
     # Use ffmpeg to extract input frames
     print("Extracting input frames...")
-    os.system(f"ffmpeg -i '{input_filepath}' '{input_frames_dir}/%05d.png'")
+    os.system(f"ffmpeg -i '{input_file_path}' '{input_frames_dir}/%05d.png'")
     print("Input frames have been extracted.")
 
     # Assign input properties
@@ -66,10 +104,10 @@ def dain_slowmotion(
     )
 
     # Calculate output fps
-    input_fps_str = sp.getoutput(f"ffprobe -v 0 -of csv=p=0 -select_streams v:0 -show_entries stream=r_frame_rate {input_filepath}")
+    input_fps_str = sp.getoutput(f"ffprobe -v 0 -of csv=p=0 -select_streams v:0 -show_entries stream=r_frame_rate {input_file_path}")
     input_fps_n, input_fps_d = [int(n) for n in input_fps_str.split("/")]
     
-    output_fps_n = input_fps_n / time_step
+    output_fps_n = input_fps_n * slow_factor
     output_fps_d = input_fps_d
 
     if output_fps < 1:
@@ -80,13 +118,6 @@ def dain_slowmotion(
         output_fps_int = output_fps
 
     # Generate output video
-    output_video_path = output_dir / f"{input_filepath.stem}-{slow_factor}x-{output_fps_int}fps.mp4"
     os.system(f"ffmpeg -y -r {output_fps_str} -f image2 -pattern_type glob -i '{output_frames_dir}/*.png' -pix_fmt yuv420p '{output_video_path}'")
 
-dain_slowmotion(
-    input_filepath=Path("/usr/local/dain/content/test1/books.mp4"),
-    output_dir=Path("/usr/local/dain/content/test1-out"),
-    slow_factor=16,
-    output_fps=30,
-    seamless=True
-)
+    print(f"Completed processing video: {output_video_path}")
