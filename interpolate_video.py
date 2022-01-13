@@ -99,7 +99,7 @@ def dain_slowmotion(
     os.system(
         f" \
             python {dain_exec_path} \
-            --netName DAIN_slowmotion \
+            --netName DAIN \
             --time_step {time_step} \
             --start_frame 1 \
             --end_frame {num_input_frames} \
