@@ -26,7 +26,7 @@ class DAIN(torch.nn.Module):
         self.filter_size = filter_size
         self.training = training
         self.timestep = timestep
-        # assert (timestep == 0.5) # TODO: or else the WeigtedFlowProjection should also be revised... Really Tedious work.
+        assert (timestep == 0.5) # TODO: or else the WeigtedFlowProjection should also be revised... Really Tedious work.
         self.numFrames =int(1.0/timestep) - 1
 
         i=0
